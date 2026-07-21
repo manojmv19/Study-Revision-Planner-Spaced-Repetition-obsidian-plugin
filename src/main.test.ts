@@ -35,8 +35,8 @@ describe('ScientificRevisionPlugin Data Adapter', () => {
   beforeEach(() => {
     mockApp = {} as App;
     mockManifest = {
-      id: 'obsidian-scientific-revision',
-      name: 'Test Plugin',
+      id: 'study-revision-planner-spaced-repetition',
+      name: 'Study & Revision Planner (Spaced Repetition)',
       version: '1.0.0',
       minAppVersion: '0.15.0'
     } as PluginManifest;

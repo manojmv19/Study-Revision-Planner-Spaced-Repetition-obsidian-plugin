@@ -1,5 +1,5 @@
 {
-  "name": "obsidian-scientific-revision",
+  "name": "study-revision-planner-spaced-repetition",
   "version": "1.0.0",
   "description": "A scientific revision tracker and planner for Obsidian using spaced repetition.",
   "main": "main.js",
