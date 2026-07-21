@@ -21,9 +21,11 @@ jest.mock('obsidian', () => {
       async saveData(data: any) {
         // Mock successful save
       }
-    }
+    },
+    ItemView: class {},
+    WorkspaceLeaf: class {}
   };
-});
+}, { virtual: true });
 
 describe('ScientificRevisionPlugin Data Adapter', () => {
   let plugin: ScientificRevisionPlugin;

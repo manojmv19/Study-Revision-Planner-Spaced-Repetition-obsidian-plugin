@@ -1,3 +1,14 @@
+const createMockEl = () => {
+  const el: any = {
+    addEventListener: jest.fn(),
+    createSpan: jest.fn(),
+    empty: jest.fn(),
+  };
+  el.createDiv = jest.fn(() => createMockEl());
+  el.createEl = jest.fn(() => createMockEl());
+  return el;
+};
+
 // Mock Obsidian classes
 jest.mock('obsidian', () => {
   class MockItemView {
@@ -6,20 +17,7 @@ jest.mock('obsidian', () => {
       this.containerEl = {
         children: [
           {},
-          {
-            empty: jest.fn(),
-            createEl: jest.fn().mockImplementation(() => ({
-              addEventListener: jest.fn(),
-              createEl: jest.fn().mockImplementation(() => ({ createSpan: jest.fn(), createDiv: jest.fn().mockImplementation(() => ({ createEl: jest.fn().mockImplementation(() => ({ addEventListener: jest.fn() })) })) }))
-            })),
-            createDiv: jest.fn().mockImplementation(() => ({
-              createEl: jest.fn().mockImplementation(() => ({
-                addEventListener: jest.fn(),
-                createSpan: jest.fn(),
-                createDiv: jest.fn().mockImplementation(() => ({ createEl: jest.fn().mockImplementation(() => ({ addEventListener: jest.fn() })) }))
-              }))
-            }))
-          }
+          createMockEl()
         ]
       };
     }
@@ -28,7 +26,7 @@ jest.mock('obsidian', () => {
     ItemView: MockItemView,
     WorkspaceLeaf: class {}
   };
-});
+}, { virtual: true });
 
 import { TrackerView } from './TrackerView';
 import ScientificRevisionPlugin from '../main';
