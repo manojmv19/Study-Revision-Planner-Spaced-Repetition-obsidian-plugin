@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, Notice } from 'obsidian';
+import { ItemView, WorkspaceLeaf, Notice, Platform } from 'obsidian';
 import { Topic, getToday, isOverdue, addDays } from '../data';
 import ScientificRevisionPlugin from '../main';
 
@@ -36,6 +36,10 @@ export class TrackerView extends ItemView {
       this.renderDashboard(contentContainer);
     } else {
       this.renderCalendar(contentContainer);
+    }
+    
+    if (Platform.isMobile) {
+      this.renderMobileActionBar(container);
     }
   }
 
@@ -218,50 +222,55 @@ export class TrackerView extends ItemView {
       const cell = grid.createDiv({ cls: `calendar-cell ${dateStr === todayStr ? 'today' : ''}` });
       cell.createDiv({ cls: "calendar-date-number", text: String(day) });
 
-      const addBtn = cell.createEl("button", { cls: "calendar-add-btn", text: "+" });
-      addBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        addBtn.style.display = 'none';
-        
-        const input = createEl("input", { type: "text", cls: "calendar-inline-input", placeholder: "Add..." });
-        if (cell.children.length > 2) {
-          cell.insertBefore(input, cell.children[2]);
-        } else {
-          cell.appendChild(input);
-        }
-        
-        input.focus();
-        
-        const saveInline = async () => {
-          const val = input.value.trim();
-          if (val) {
-            const newTopic: Topic = {
-              id: Date.now().toString(),
-              name: val,
-              state: 'planned',
-              targetDate: dateStr,
-              interval: 0,
-              easeFactor: 2.5
-            };
-            this.plugin.pluginData.topics.push(newTopic);
-            await this.plugin.savePluginData();
-            this.render();
-          } else {
-            input.remove();
-            addBtn.style.display = '';
+      if (!Platform.isMobile) {
+        cell.addClass("desktop-clickable");
+        cell.addEventListener("click", (e) => {
+          if ((e.target as HTMLElement).closest('.calendar-topic-item, .calendar-inline-input')) {
+             return;
           }
-        };
 
-        input.addEventListener("blur", saveInline);
-        input.addEventListener("keydown", (ev) => {
-          if (ev.key === "Enter") {
-            input.blur();
-          } else if (ev.key === "Escape") {
-            input.remove();
-            addBtn.style.display = '';
+          if (cell.querySelector('.calendar-inline-input')) {
+             return;
           }
+          
+          const input = createEl("input", { type: "text", cls: "calendar-inline-input", placeholder: "Add..." });
+          if (cell.children.length > 1) {
+            cell.insertBefore(input, cell.children[1]);
+          } else {
+            cell.appendChild(input);
+          }
+          
+          input.focus();
+          
+          const saveInline = async () => {
+            const val = input.value.trim();
+            if (val) {
+              const newTopic: Topic = {
+                id: Date.now().toString(),
+                name: val,
+                state: 'planned',
+                targetDate: dateStr,
+                interval: 0,
+                easeFactor: 2.5
+              };
+              this.plugin.pluginData.topics.push(newTopic);
+              await this.plugin.savePluginData();
+              this.render();
+            } else {
+              input.remove();
+            }
+          };
+
+          input.addEventListener("blur", saveInline);
+          input.addEventListener("keydown", (ev) => {
+            if (ev.key === "Enter") {
+              input.blur();
+            } else if (ev.key === "Escape") {
+              input.remove();
+            }
+          });
         });
-      });
+      }
 
       cell.addEventListener("dragover", (e) => {
         e.preventDefault();
@@ -312,5 +321,32 @@ export class TrackerView extends ItemView {
   private async handleGrade(topicId: string, quality: number) {
     await this.plugin.handleRevisionGrade(topicId, quality);
     this.render();
+  }
+
+  private renderMobileActionBar(container: HTMLElement) {
+    const actionBar = container.createDiv({ cls: "mobile-action-bar" });
+    const today = getToday();
+    
+    const dateInput = actionBar.createEl("input", { type: "date", cls: "mobile-date-picker", value: today });
+    const input = actionBar.createEl("input", { type: "text", placeholder: "Log a topic..." });
+    const addButton = actionBar.createEl("button", { text: "+" });
+
+    addButton.addEventListener("click", async () => {
+      if (input.value.trim()) {
+        const targetDate = dateInput.value || today;
+        const newTopic: Topic = {
+          id: Date.now().toString(),
+          name: input.value.trim(),
+          state: 'planned',
+          targetDate: targetDate,
+          interval: 0,
+          easeFactor: 2.5
+        };
+        this.plugin.pluginData.topics.push(newTopic);
+        await this.plugin.savePluginData();
+        input.value = '';
+        this.render();
+      }
+    });
   }
 }

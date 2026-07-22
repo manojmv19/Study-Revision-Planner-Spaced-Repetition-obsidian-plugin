@@ -15,11 +15,12 @@ const createMockEl = () => {
     },
     createSpan: jest.fn(),
     empty: jest.fn(function(this: any) { this.children = []; }),
-    addClass: jest.fn(),
+    addClass: jest.fn(function(this: any, cls: string) { this.className = (this.className ? this.className + ' ' : '') + cls; }),
     removeClass: jest.fn(),
     setAttr: jest.fn(),
     setAttribute: jest.fn(),
     setText: jest.fn(),
+    querySelector: jest.fn().mockReturnValue(null),
     value: '',
   };
   el.createDiv = jest.fn(function(this: any, opts?: any) {
@@ -65,7 +66,8 @@ jest.mock('obsidian', () => {
   return {
     ItemView: MockItemView,
     WorkspaceLeaf: class {},
-    Notice: jest.fn()
+    Notice: jest.fn(),
+    Platform: { isMobile: false }
   };
 }, { virtual: true });
 
@@ -162,10 +164,12 @@ describe('TrackerView UI Logic', () => {
     view.activeTab = 'calendar';
     view.render();
 
-    const calAddBtn = allMockElements.find(e => e.textContent === '+');
-    calAddBtn.trigger('click', { stopPropagation: jest.fn() });
+    // Find a valid day cell (not empty)
+    const calCell = allMockElements.find(e => e.className && e.className.includes('calendar-cell') && !e.className.includes('empty'));
+    calCell.trigger('click', { target: { closest: () => false } });
 
     const inlineInput = allMockElements.find(e => e.className === 'calendar-inline-input');
+    if (!inlineInput) throw new Error("inlineInput was not created. Click handler failed.");
     inlineInput.value = 'New Cal Topic';
     
     // Save on blur
@@ -174,17 +178,21 @@ describe('TrackerView UI Logic', () => {
     expect(mockPlugin.pluginData.topics[0].name).toBe('New Cal Topic');
 
     // Test Escape cancels
-    calAddBtn.trigger('click', { stopPropagation: jest.fn() });
+    calCell.trigger('click', { target: { closest: () => false } });
     const inlineInput2 = allMockElements.find(e => e.className === 'calendar-inline-input' && e !== inlineInput);
-    inlineInput2.value = 'Cancel Me';
-    inlineInput2.trigger('keydown', { key: 'Escape' });
+    if (inlineInput2) {
+      inlineInput2.value = 'Cancel Me';
+      inlineInput2.trigger('keydown', { key: 'Escape' });
+    }
     expect(mockPlugin.pluginData.topics.length).toBe(1);
     
     // Test empty blur doesn't add
-    calAddBtn.trigger('click', { stopPropagation: jest.fn() });
+    calCell.trigger('click', { target: { closest: () => false } });
     const inlineInput3 = allMockElements.find(e => e.className === 'calendar-inline-input' && e !== inlineInput && e !== inlineInput2);
-    inlineInput3.value = '   ';
-    await inlineInput3.trigger('blur');
+    if (inlineInput3) {
+      inlineInput3.value = '   ';
+      await inlineInput3.trigger('blur');
+    }
     expect(mockPlugin.pluginData.topics.length).toBe(1);
   });
 

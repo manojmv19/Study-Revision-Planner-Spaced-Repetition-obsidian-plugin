@@ -282,32 +282,57 @@
   outline-offset: -2px; 
 }
 
-/* Quick Add Button */
-.calendar-add-btn {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border-radius: 4px;
-  background: var(--interactive-accent);
-  color: var(--text-on-accent);
-  border: none;
-  font-size: 14px;
-  line-height: 1;
+/* Desktop Cell Click Interaction */
+.desktop-clickable:not(.empty) {
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.2s;
-  z-index: 3;
+}
+.desktop-clickable:not(.empty):hover {
+  background: var(--background-modifier-hover);
+}
+
+/* Mobile Action Bar */
+.mobile-action-bar {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--background-primary);
+  border-top: 1px solid var(--background-modifier-border);
+  padding: 12px;
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+}
+.mobile-action-bar input[type="date"] {
+  flex-shrink: 0;
+  width: auto;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+.mobile-action-bar input[type="text"] {
+  flex-grow: 1;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+.mobile-action-bar button {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 1.2em;
+  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border: none;
+  cursor: pointer;
 }
-.calendar-cell:not(.empty):hover .calendar-add-btn {
-  opacity: 1;
-}
-.calendar-add-btn:hover {
+.mobile-action-bar button:hover {
   filter: brightness(1.1);
 }
 
