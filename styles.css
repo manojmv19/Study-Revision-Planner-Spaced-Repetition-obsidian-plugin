@@ -26,7 +26,10 @@
 /* ==========================================================
    DASHBOARD LAYOUT
    ========================================================== */
-.tracker-content { padding-bottom: 30px; }
+.tracker-content { 
+  padding-bottom: 30px; 
+  overflow-x: auto; /* Allow horizontal scrolling if calendar needs it */
+}
 
 .tracker-section { margin-bottom: 28px; }
 .tracker-section h3 { 
@@ -81,6 +84,39 @@
 }
 .tracker-input-container button:hover { filter: brightness(1.1); }
 .tracker-input-container button:active { transform: scale(0.97); }
+
+/* Scroll Area Styles */
+.tracker-section ul {
+  max-height: 350px;
+  overflow-y: auto;
+  padding-right: 6px;
+  padding-left: 0;
+  list-style-type: none;
+  margin-left: 0;
+}
+
+/* Custom Scrollbar for Dashboard List */
+.tracker-section ul::-webkit-scrollbar {
+  width: 4px;
+}
+.tracker-section ul::-webkit-scrollbar-track {
+  background: transparent;
+}
+.tracker-section ul::-webkit-scrollbar-thumb {
+  background: var(--background-modifier-border);
+  border-radius: 4px;
+}
+.tracker-section ul::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Hide scrollbar completely for Calendar cells to save precious width in sidebars */
+.calendar-cell::-webkit-scrollbar {
+  display: none;
+}
+.calendar-cell {
+  scrollbar-width: none;
+}
 
 /* ==========================================================
    TOPIC CARDS (Task Items)
@@ -147,6 +183,7 @@
   align-items: center; 
   margin-bottom: 20px; 
   padding: 0 4px; 
+  min-width: 350px; /* Ensure it matches the grid */
 }
 .calendar-header strong { font-size: 1.3em; color: var(--text-normal); }
 .calendar-header button { 
@@ -161,8 +198,9 @@
 
 .calendar-grid { 
   display: grid; 
-  grid-template-columns: repeat(7, 1fr); 
+  grid-template-columns: repeat(7, minmax(45px, 1fr)); /* Force minimum width per cell */
   gap: 6px; 
+  min-width: 350px; /* Triggers horizontal scroll in very narrow panes */
 }
 .calendar-day-header { 
   text-align: center; 
@@ -179,11 +217,15 @@
   border: 1px solid var(--background-modifier-border); 
   border-radius: 6px; 
   min-height: 90px; 
-  padding: 6px; 
+  max-height: 130px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px; /* Reduced from 6px */
   display: flex; 
   flex-direction: column; 
   background: var(--background-secondary-alt); 
   transition: all 0.2s; 
+  scrollbar-width: none; /* Hide scrollbar Firefox */
 }
 .calendar-cell.empty { background: transparent; border-color: transparent; }
 .calendar-cell.drag-over { 
@@ -192,11 +234,17 @@
   outline-offset: -2px; 
 }
 .calendar-date-number { 
-  font-size: 0.85em; 
+  font-size: 0.75em; /* Reduced */
   opacity: 0.6; 
-  margin-bottom: 6px; 
+  margin-bottom: 4px; /* Reduced */
   text-align: right; 
   font-weight: 500; 
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--background-secondary-alt); /* Make background solid to hide scrolling items */
+  padding-bottom: 2px;
+  margin-top: -2px;
 }
 
 /* Today Highlight */
@@ -217,17 +265,20 @@
 
 /* Calendar Draggable Items */
 .calendar-topic-item { 
-  font-size: 0.8em; 
-  padding: 6px 8px; 
-  margin-bottom: 6px; 
+  font-size: 11px; /* Fixed size so it never collapses to dashes */
+  line-height: 1.3; /* Slightly more breathable line-height for wrapped text */
+  padding: 4px; 
+  margin-bottom: 4px; 
   border-radius: 4px; 
   cursor: grab; 
-  overflow: hidden; 
-  text-overflow: ellipsis; 
-  white-space: nowrap; 
+  white-space: normal; /* Allow text to wrap to multiple lines */
+  overflow-wrap: break-word; /* Break long words if they exceed cell width */
   font-weight: 500; 
   border: 1px solid transparent; 
   transition: opacity 0.2s, transform 0.2s;
+  min-height: 20px; /* Prevent vertical squishing */
+  flex-shrink: 0; /* CRITICAL: Prevents the pill from shrinking smaller than its text! */
+  height: auto; /* Allow the pill to grow to fit the text */
 }
 .calendar-topic-item:active { cursor: grabbing; opacity: 0.8; transform: scale(0.96); }
 .calendar-topic-item.planned { 
