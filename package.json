@@ -1,6 +1,6 @@
 {
   "name": "study-revision-planner-spaced-repetition",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A hybrid study planner and spaced repetition system.",
   "main": "main.js",
   "scripts": {
