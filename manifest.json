@@ -1,10 +1,10 @@
 {
   "id": "study-revision-planner-spaced-repetition",
   "name": "Study & Revision Planner (Spaced Repetition)",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minAppVersion": "1.0.0",
   "description": "A hybrid study planner and spaced repetition system.",
   "author": "Manoj M V",
-  "authorUrl": "",
+  "authorUrl": "https://github.com/manojmv19",
   "isDesktopOnly": false
 }

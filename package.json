@@ -1,7 +1,7 @@
 {
   "name": "study-revision-planner-spaced-repetition",
-  "version": "1.0.0",
-  "description": "A scientific revision tracker and planner for Obsidian using spaced repetition.",
+  "version": "1.0.1",
+  "description": "A hybrid study planner and spaced repetition system.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
