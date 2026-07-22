@@ -5,40 +5,65 @@ import { TrackerView } from './ui/TrackerView';
 
 // Mock Obsidian Plugin architecture
 jest.mock('obsidian', () => {
+  class MockPlugin {
+    app: any;
+    manifest: any;
+    
+    constructor(app: any, manifest: any) {
+      this.app = app;
+      this.manifest = manifest;
+    }
+    
+    addRibbonIcon(icon: string, title: string, cb: Function) {
+      (this as any).ribbonCb = cb;
+    }
+    
+    registerView(type: string, cb: Function) {
+      (this as any).viewCb = cb;
+    }
+    
+    registerEvent(eventRef: any) {
+      (this as any).eventRefs = (this as any).eventRefs || [];
+      (this as any).eventRefs.push(eventRef);
+    }
+    
+    async loadData() {
+      return { topics: [{ id: '1', name: 'Test', state: 'planned', targetDate: '2023-01-01', interval: 0, easeFactor: 2.5 }] };
+    }
+    
+    async saveData(data: any) {
+      // Mock successful save
+    }
+    
+    addSettingTab(tab: any) {
+      // Mock addSettingTab
+    }
+  }
+
+  class MockPluginSettingTab {
+    app: any;
+    plugin: any;
+    containerEl = { empty: jest.fn(), createEl: jest.fn() };
+    constructor(app: any, plugin: any) {
+      this.app = app;
+      this.plugin = plugin;
+    }
+    display() {}
+  }
+
   return {
-    Plugin: class {
-      app: any;
-      manifest: any;
-      
-      constructor(app: any, manifest: any) {
-        this.app = app;
-        this.manifest = manifest;
-      }
-      
-      addRibbonIcon(icon: string, title: string, cb: Function) {
-        (this as any).ribbonCb = cb;
-      }
-      
-      registerView(type: string, cb: Function) {
-        (this as any).viewCb = cb;
-      }
-      
-      registerEvent(eventRef: any) {
-        (this as any).eventRefs = (this as any).eventRefs || [];
-        (this as any).eventRefs.push(eventRef);
-      }
-      
-      async loadData() {
-        return { topics: [{ id: '1', name: 'Test', state: 'planned', targetDate: '2023-01-01', interval: 0, easeFactor: 2.5 }] };
-      }
-      
-      async saveData(data: any) {
-        // Mock successful save
-      }
-    },
+    Plugin: MockPlugin,
     ItemView: class {},
     WorkspaceLeaf: class {},
-    Notice: class {}
+    Notice: class {},
+    Setting: class {
+      setName() { return this; }
+      setDesc() { return this; }
+      addDropdown() { return this; }
+      addText() { return this; }
+    },
+    PluginSettingTab: MockPluginSettingTab,
+    Platform: { isMobile: false }
   };
 }, { virtual: true });
 

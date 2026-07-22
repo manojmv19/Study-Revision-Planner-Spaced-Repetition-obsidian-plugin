@@ -1,5 +1,5 @@
 import { Topic, PluginData, DEFAULT_DATA, getToday, addDays, isOverdue } from './data';
-import { calculateNextInterval } from './algorithm';
+import { calculateNextInterval, calculateStaticNextInterval } from './algorithm';
 
 // Mock test for pure functions
 describe('Data module', () => {
@@ -42,5 +42,21 @@ describe('Algorithm module', () => {
   it('should clamp easeFactor to 1.3 minimum', () => {
     const res = calculateNextInterval(1, 1, 1.3);
     expect(res.easeFactor).toBe(1.3);
+  });
+
+  it('should calculate next static interval correctly', () => {
+    const staticIntervals = [1, 7, 15, 30];
+    
+    // Quality < 3 should stay on current
+    expect(calculateStaticNextInterval(1, 1, staticIntervals)).toBe(1);
+    expect(calculateStaticNextInterval(2, 7, staticIntervals)).toBe(7);
+
+    // Quality >= 3 should advance
+    expect(calculateStaticNextInterval(3, 1, staticIntervals)).toBe(7);
+    expect(calculateStaticNextInterval(4, 7, staticIntervals)).toBe(15);
+    expect(calculateStaticNextInterval(5, 15, staticIntervals)).toBe(30);
+
+    // End of array should return null
+    expect(calculateStaticNextInterval(4, 30, staticIntervals)).toBeNull();
   });
 });

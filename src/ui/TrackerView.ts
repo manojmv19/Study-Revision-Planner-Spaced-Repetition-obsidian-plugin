@@ -288,7 +288,7 @@ export class TrackerView extends ItemView {
         }
       });
 
-      const dayTopics = this.plugin.pluginData.topics.filter(t => t.targetDate === dateStr);
+      const dayTopics = this.plugin.pluginData.topics.filter(t => t.targetDate === dateStr && t.state !== 'completed');
       for (const topic of dayTopics) {
         const topicEl = cell.createDiv({ cls: `calendar-topic-item ${topic.state}` });
         this.renderTopicName(topicEl, topic.name, "");

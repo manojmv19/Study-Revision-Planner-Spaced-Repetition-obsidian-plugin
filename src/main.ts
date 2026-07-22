@@ -1,7 +1,8 @@
 import { Plugin, WorkspaceLeaf } from 'obsidian';
 import { PluginData, DEFAULT_DATA, getToday, addDays } from './data';
-import { calculateNextInterval } from './algorithm';
+import { calculateNextInterval, calculateStaticNextInterval } from './algorithm';
 import { TrackerView, VIEW_TYPE_TRACKER } from './ui/TrackerView';
+import { TrackerSettingTab } from './settings';
 
 export default class ScientificRevisionPlugin extends Plugin {
   pluginData: PluginData;
@@ -15,6 +16,8 @@ export default class ScientificRevisionPlugin extends Plugin {
       VIEW_TYPE_TRACKER,
       (leaf) => new TrackerView(leaf, this)
     );
+
+    this.addSettingTab(new TrackerSettingTab(this.app, this));
 
     this.addRibbonIcon('calendar-check', 'Study Tracker', () => {
       this.activateView();
@@ -82,10 +85,16 @@ export default class ScientificRevisionPlugin extends Plugin {
     const topic = this.pluginData.topics.find(t => t.id === topicId);
     if (topic) {
       topic.state = 'studied';
-      topic.interval = 1;
-      topic.easeFactor = 2.5;
+      topic.easeFactor = 2.5; // Always initialize for SM-2 fallback
+      
+      if (this.pluginData.settings.algorithmType === 'STATIC') {
+        topic.interval = this.pluginData.settings.staticIntervals[0] || 1;
+      } else {
+        topic.interval = 1;
+      }
+      
       topic.lastReviewDate = getToday();
-      topic.targetDate = addDays(getToday(), 1); // Scheduled for tomorrow
+      topic.targetDate = addDays(getToday(), topic.interval);
       await this.savePluginData();
     }
   }
@@ -93,11 +102,23 @@ export default class ScientificRevisionPlugin extends Plugin {
   async handleRevisionGrade(topicId: string, quality: number) {
     const topic = this.pluginData.topics.find(t => t.id === topicId);
     if (topic) {
-      const result = calculateNextInterval(quality, topic.interval, topic.easeFactor);
-      topic.interval = result.interval;
-      topic.easeFactor = result.easeFactor;
+      if (this.pluginData.settings.algorithmType === 'STATIC') {
+        const nextInterval = calculateStaticNextInterval(quality, topic.interval, this.pluginData.settings.staticIntervals);
+        if (nextInterval === null) {
+          topic.state = 'completed';
+        } else {
+          topic.interval = nextInterval;
+          topic.targetDate = addDays(getToday(), topic.interval);
+        }
+      } else {
+        // SM-2 Fallback
+        const result = calculateNextInterval(quality, topic.interval, topic.easeFactor);
+        topic.interval = result.interval;
+        topic.easeFactor = result.easeFactor;
+        topic.targetDate = addDays(getToday(), topic.interval);
+      }
+      
       topic.lastReviewDate = getToday();
-      topic.targetDate = addDays(getToday(), topic.interval);
       await this.savePluginData();
     }
   }

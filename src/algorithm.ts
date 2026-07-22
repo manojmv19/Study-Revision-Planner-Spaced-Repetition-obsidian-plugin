@@ -36,3 +36,25 @@ export function calculateNextInterval(quality: number, currentInterval: number, 
     easeFactor: newEaseFactor 
   };
 }
+
+/**
+ * Static Schedule Algorithm
+ * If quality < 3 (Hard), return the current interval (stay on same step).
+ * If quality >= 3 (Good/Easy), find the next interval in the static array.
+ * If no next interval exists, return null (indicating completion).
+ */
+export function calculateStaticNextInterval(quality: number, currentInterval: number, staticIntervals: number[]): number | null {
+  if (quality < 3) {
+    return currentInterval;
+  }
+
+  // Find the index of the closest interval that is strictly greater than the current interval
+  // If the user's currentInterval doesn't exactly match the array, we just move them to the next logical step.
+  const nextInterval = staticIntervals.find(interval => interval > currentInterval);
+  
+  if (nextInterval === undefined) {
+    return null; // Completed
+  }
+
+  return nextInterval;
+}

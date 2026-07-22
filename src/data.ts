@@ -1,7 +1,7 @@
 export interface Topic {
   id: string; // unique identifier
   name: string; // e.g., "[[Quantum Physics]]"
-  state: 'planned' | 'studied';
+  state: 'planned' | 'studied' | 'completed';
   targetDate: string; // YYYY-MM-DD format (planned study date OR next review date)
   
   // SM-2 Spaced Repetition fields
@@ -10,11 +10,21 @@ export interface Topic {
   lastReviewDate?: string; // YYYY-MM-DD
 }
 
+export interface PluginSettings {
+  algorithmType: 'SM-2' | 'STATIC';
+  staticIntervals: number[]; // e.g., [1, 7, 15, 30]
+}
+
 export interface PluginData {
+  settings: PluginSettings;
   topics: Topic[];
 }
 
 export const DEFAULT_DATA: PluginData = {
+  settings: {
+    algorithmType: 'SM-2',
+    staticIntervals: [1, 7, 15, 30]
+  },
   topics: []
 };
 
