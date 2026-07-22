@@ -24,7 +24,8 @@ jest.mock('obsidian', () => {
   }
   return {
     ItemView: MockItemView,
-    WorkspaceLeaf: class {}
+    WorkspaceLeaf: class {},
+    Notice: jest.fn()
   };
 }, { virtual: true });
 
@@ -83,5 +84,35 @@ describe('TrackerView UI Logic', () => {
     
     expect(mockPlugin.pluginData.topics.length).toBe(1);
     expect(mockPlugin.savePluginData).toHaveBeenCalled();
+  });
+
+  it('renders calendar tab correctly', () => {
+    view.activeTab = 'calendar';
+    expect(() => view.render()).not.toThrow();
+  });
+
+  it('handleTopicDrop updates target date and saves data', async () => {
+    mockPlugin.pluginData.topics.push({
+      id: 'drop-test', name: 'Topic 1', state: 'planned', targetDate: '2023-10-10', interval: 0, easeFactor: 2.5
+    });
+    
+    await (view as any).handleTopicDrop('drop-test', '2023-10-15');
+    
+    const updatedTopic = mockPlugin.pluginData.topics.find((t: any) => t.id === 'drop-test');
+    expect(updatedTopic.targetDate).toBe('2023-10-15');
+    expect(mockPlugin.savePluginData).toHaveBeenCalled();
+  });
+
+  it('handleTopicDrop shows warning when delaying a studied algorithmic revision', async () => {
+    const mockNotice = require('obsidian').Notice;
+    mockNotice.mockClear();
+    
+    mockPlugin.pluginData.topics.push({
+      id: 'warning-test', name: 'Topic 2', state: 'studied', targetDate: '2023-10-10', interval: 1, easeFactor: 2.5
+    });
+    
+    await (view as any).handleTopicDrop('warning-test', '2023-10-15'); // 5 days in the future
+    
+    expect(mockNotice).toHaveBeenCalledWith("⚠️ Warning: Delaying a scheduled algorithmic revision risks forgetting the material!");
   });
 });

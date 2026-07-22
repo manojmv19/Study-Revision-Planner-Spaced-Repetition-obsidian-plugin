@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf } from 'obsidian';
+import { ItemView, WorkspaceLeaf, Notice } from 'obsidian';
 import { Topic, getToday, isOverdue } from '../data';
 import ScientificRevisionPlugin from '../main';
 
@@ -6,44 +6,52 @@ export const VIEW_TYPE_TRACKER = "scientific-revision-tracker";
 
 export class TrackerView extends ItemView {
   plugin: ScientificRevisionPlugin;
+  activeTab: 'dashboard' | 'calendar' = 'dashboard';
+  currentMonthOffset: number = 0;
 
   constructor(leaf: WorkspaceLeaf, plugin: ScientificRevisionPlugin) {
     super(leaf);
     this.plugin = plugin;
   }
 
-  getViewType() {
-    return VIEW_TYPE_TRACKER;
-  }
-
-  getDisplayText() {
-    return "Study Tracker";
-  }
-
-  async onOpen() {
-    this.render();
-  }
-
-  async onClose() {
-    // Cleanup if necessary
-  }
+  getViewType() { return VIEW_TYPE_TRACKER; }
+  getDisplayText() { return "Study Tracker"; }
+  async onOpen() { this.render(); }
+  async onClose() {}
 
   public render() {
     const container = this.containerEl.children[1] as HTMLElement;
     container.empty();
 
+    const tabsContainer = container.createDiv({ cls: "tracker-tabs" });
+    const dashTab = tabsContainer.createDiv({ cls: `tracker-tab ${this.activeTab === 'dashboard' ? 'active' : ''}`, text: "Dashboard" });
+    const calTab = tabsContainer.createDiv({ cls: `tracker-tab ${this.activeTab === 'calendar' ? 'active' : ''}`, text: "Calendar" });
+
+    dashTab.addEventListener("click", () => { this.activeTab = 'dashboard'; this.render(); });
+    calTab.addEventListener("click", () => { this.activeTab = 'calendar'; this.render(); });
+
+    const contentContainer = container.createDiv({ cls: "tracker-content" });
+
+    if (this.activeTab === 'dashboard') {
+      this.renderDashboard(contentContainer);
+    } else {
+      this.renderCalendar(contentContainer);
+    }
+  }
+
+  private renderDashboard(container: HTMLElement) {
     const today = getToday();
     const topics = this.plugin.pluginData.topics;
 
-    // Filter data in-memory based on PRD scalability rules
+    // Algorithmic revisions that were missed (Disrupts the math!)
     const overdueTopics = topics.filter(t => t.state === 'studied' && isOverdue(t.targetDate, today));
-    const toStudyToday = topics.filter(t => t.state === 'planned' && t.targetDate === today);
+    
+    // Planned tasks stay in the inbox until you study them, even if created in the past
+    const toStudyToday = topics.filter(t => t.state === 'planned' && t.targetDate <= today);
+    
+    // Algorithmic revisions scheduled exactly for today
     const toReviseToday = topics.filter(t => t.state === 'studied' && t.targetDate === today);
 
-    // Create UI Structure
-    const header = container.createEl("h2", { text: "Study & Revision Planner" });
-    
-    // 1. Input Field
     const inputContainer = container.createDiv({ cls: "tracker-input-container" });
     const input = inputContainer.createEl("input", { type: "text", placeholder: "Log a new topic (e.g. [[Physics]])" });
     const addButton = inputContainer.createEl("button", { text: "Add for Today" });
@@ -61,18 +69,16 @@ export class TrackerView extends ItemView {
         this.plugin.pluginData.topics.push(newTopic);
         await this.plugin.savePluginData();
         input.value = '';
-        this.render(); // Re-render efficiently
+        this.render();
       }
     });
 
-    // 2. Overdue Section (Red highlight handled by CSS cls)
     if (overdueTopics.length > 0) {
       const overdueContainer = container.createDiv({ cls: "tracker-section overdue-section" });
       overdueContainer.createEl("h3", { text: "⚠️ Overdue Revisions" });
       this.renderTopicList(overdueContainer, overdueTopics);
     }
 
-    // 3. To Revise Today
     const reviseContainer = container.createDiv({ cls: "tracker-section" });
     reviseContainer.createEl("h3", { text: "🔄 To Revise Today" });
     if (toReviseToday.length === 0) {
@@ -81,7 +87,6 @@ export class TrackerView extends ItemView {
       this.renderTopicList(reviseContainer, toReviseToday);
     }
 
-    // 4. To Study Today (Planned tasks)
     const studyContainer = container.createDiv({ cls: "tracker-section" });
     studyContainer.createEl("h3", { text: "📚 To Study Today" });
     if (toStudyToday.length === 0) {
@@ -100,14 +105,12 @@ export class TrackerView extends ItemView {
       const actions = li.createDiv({ cls: "topic-actions" });
 
       if (topic.state === 'planned') {
-        // Study complete button
         const btn = actions.createEl("button", { text: "Done" });
         btn.addEventListener("click", async () => {
           await this.plugin.handleStudyComplete(topic.id);
           this.render();
         });
       } else {
-        // Grade buttons for studied topics (1: Hard, 4: Good, 5: Easy)
         const hardBtn = actions.createEl("button", { text: "Hard (1)", cls: "btn-hard" });
         const goodBtn = actions.createEl("button", { text: "Good (4)", cls: "btn-good" });
         const easyBtn = actions.createEl("button", { text: "Easy (5)", cls: "btn-easy" });
@@ -117,6 +120,87 @@ export class TrackerView extends ItemView {
         easyBtn.addEventListener("click", () => this.handleGrade(topic.id, 5));
       }
     }
+  }
+
+  private renderCalendar(container: HTMLElement) {
+    const today = new Date();
+    const displayDate = new Date(today.getFullYear(), today.getMonth() + this.currentMonthOffset, 1);
+    
+    const header = container.createDiv({ cls: "calendar-header" });
+    const prevBtn = header.createEl("button", { text: "◀" });
+    const title = header.createEl("strong", { text: displayDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) });
+    const nextBtn = header.createEl("button", { text: "▶" });
+
+    prevBtn.addEventListener("click", () => { this.currentMonthOffset--; this.render(); });
+    nextBtn.addEventListener("click", () => { this.currentMonthOffset++; this.render(); });
+
+    const grid = container.createDiv({ cls: "calendar-grid" });
+    
+    ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach(day => {
+      grid.createDiv({ cls: "calendar-day-header", text: day });
+    });
+
+    const daysInMonth = new Date(displayDate.getFullYear(), displayDate.getMonth() + 1, 0).getDate();
+    const firstDayOfWeek = displayDate.getDay();
+
+    for (let i = 0; i < firstDayOfWeek; i++) {
+      grid.createDiv({ cls: "calendar-cell empty" });
+    }
+
+    const todayStr = getToday();
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const cellDate = new Date(displayDate.getFullYear(), displayDate.getMonth(), day);
+      const dateStr = `${cellDate.getFullYear()}-${String(cellDate.getMonth() + 1).padStart(2, '0')}-${String(cellDate.getDate()).padStart(2, '0')}`;
+      
+      const cell = grid.createDiv({ cls: `calendar-cell ${dateStr === todayStr ? 'today' : ''}` });
+      cell.createDiv({ cls: "calendar-date-number", text: String(day) });
+
+      cell.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        cell.addClass("drag-over");
+      });
+      cell.addEventListener("dragleave", () => {
+        cell.removeClass("drag-over");
+      });
+      cell.addEventListener("drop", async (e) => {
+        e.preventDefault();
+        cell.removeClass("drag-over");
+        const topicId = e.dataTransfer?.getData("text/plain");
+        if (topicId) {
+          await this.handleTopicDrop(topicId, dateStr);
+        }
+      });
+
+      const dayTopics = this.plugin.pluginData.topics.filter(t => t.targetDate === dateStr);
+      for (const topic of dayTopics) {
+        const topicEl = cell.createDiv({ 
+          cls: `calendar-topic-item ${topic.state}`,
+          text: topic.name
+        });
+        topicEl.setAttr("draggable", "true");
+        topicEl.addEventListener("dragstart", (e) => {
+          e.dataTransfer?.setData("text/plain", topic.id);
+          topicEl.addClass("dragging");
+        });
+        topicEl.addEventListener("dragend", () => {
+          topicEl.removeClass("dragging");
+        });
+      }
+    }
+  }
+
+  private async handleTopicDrop(topicId: string, newDate: string) {
+    const topic = this.plugin.pluginData.topics.find(t => t.id === topicId);
+    if (!topic || topic.targetDate === newDate) return;
+
+    if (topic.state === 'studied' && newDate > topic.targetDate) {
+      new Notice("⚠️ Warning: Delaying a scheduled algorithmic revision risks forgetting the material!");
+    }
+
+    topic.targetDate = newDate;
+    await this.plugin.savePluginData();
+    this.render();
   }
 
   private async handleGrade(topicId: string, quality: number) {

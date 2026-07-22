@@ -72,6 +72,8 @@ var VIEW_TYPE_TRACKER = "scientific-revision-tracker";
 var TrackerView = class extends import_obsidian.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
+    this.activeTab = "dashboard";
+    this.currentMonthOffset = 0;
     this.plugin = plugin;
   }
   getViewType() {
@@ -88,12 +90,30 @@ var TrackerView = class extends import_obsidian.ItemView {
   render() {
     const container = this.containerEl.children[1];
     container.empty();
+    const tabsContainer = container.createDiv({ cls: "tracker-tabs" });
+    const dashTab = tabsContainer.createDiv({ cls: `tracker-tab ${this.activeTab === "dashboard" ? "active" : ""}`, text: "Dashboard" });
+    const calTab = tabsContainer.createDiv({ cls: `tracker-tab ${this.activeTab === "calendar" ? "active" : ""}`, text: "Calendar" });
+    dashTab.addEventListener("click", () => {
+      this.activeTab = "dashboard";
+      this.render();
+    });
+    calTab.addEventListener("click", () => {
+      this.activeTab = "calendar";
+      this.render();
+    });
+    const contentContainer = container.createDiv({ cls: "tracker-content" });
+    if (this.activeTab === "dashboard") {
+      this.renderDashboard(contentContainer);
+    } else {
+      this.renderCalendar(contentContainer);
+    }
+  }
+  renderDashboard(container) {
     const today = getToday();
     const topics = this.plugin.pluginData.topics;
     const overdueTopics = topics.filter((t) => t.state === "studied" && isOverdue(t.targetDate, today));
-    const toStudyToday = topics.filter((t) => t.state === "planned" && t.targetDate === today);
+    const toStudyToday = topics.filter((t) => t.state === "planned" && t.targetDate <= today);
     const toReviseToday = topics.filter((t) => t.state === "studied" && t.targetDate === today);
-    const header = container.createEl("h2", { text: "Study & Revision Planner" });
     const inputContainer = container.createDiv({ cls: "tracker-input-container" });
     const input = inputContainer.createEl("input", { type: "text", placeholder: "Log a new topic (e.g. [[Physics]])" });
     const addButton = inputContainer.createEl("button", { text: "Add for Today" });
@@ -154,6 +174,81 @@ var TrackerView = class extends import_obsidian.ItemView {
         easyBtn.addEventListener("click", () => this.handleGrade(topic.id, 5));
       }
     }
+  }
+  renderCalendar(container) {
+    const today = new Date();
+    const displayDate = new Date(today.getFullYear(), today.getMonth() + this.currentMonthOffset, 1);
+    const header = container.createDiv({ cls: "calendar-header" });
+    const prevBtn = header.createEl("button", { text: "\u25C0" });
+    const title = header.createEl("strong", { text: displayDate.toLocaleDateString(void 0, { month: "long", year: "numeric" }) });
+    const nextBtn = header.createEl("button", { text: "\u25B6" });
+    prevBtn.addEventListener("click", () => {
+      this.currentMonthOffset--;
+      this.render();
+    });
+    nextBtn.addEventListener("click", () => {
+      this.currentMonthOffset++;
+      this.render();
+    });
+    const grid = container.createDiv({ cls: "calendar-grid" });
+    ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].forEach((day) => {
+      grid.createDiv({ cls: "calendar-day-header", text: day });
+    });
+    const daysInMonth = new Date(displayDate.getFullYear(), displayDate.getMonth() + 1, 0).getDate();
+    const firstDayOfWeek = displayDate.getDay();
+    for (let i = 0; i < firstDayOfWeek; i++) {
+      grid.createDiv({ cls: "calendar-cell empty" });
+    }
+    const todayStr = getToday();
+    for (let day = 1; day <= daysInMonth; day++) {
+      const cellDate = new Date(displayDate.getFullYear(), displayDate.getMonth(), day);
+      const dateStr = `${cellDate.getFullYear()}-${String(cellDate.getMonth() + 1).padStart(2, "0")}-${String(cellDate.getDate()).padStart(2, "0")}`;
+      const cell = grid.createDiv({ cls: `calendar-cell ${dateStr === todayStr ? "today" : ""}` });
+      cell.createDiv({ cls: "calendar-date-number", text: String(day) });
+      cell.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        cell.addClass("drag-over");
+      });
+      cell.addEventListener("dragleave", () => {
+        cell.removeClass("drag-over");
+      });
+      cell.addEventListener("drop", async (e) => {
+        var _a;
+        e.preventDefault();
+        cell.removeClass("drag-over");
+        const topicId = (_a = e.dataTransfer) == null ? void 0 : _a.getData("text/plain");
+        if (topicId) {
+          await this.handleTopicDrop(topicId, dateStr);
+        }
+      });
+      const dayTopics = this.plugin.pluginData.topics.filter((t) => t.targetDate === dateStr);
+      for (const topic of dayTopics) {
+        const topicEl = cell.createDiv({
+          cls: `calendar-topic-item ${topic.state}`,
+          text: topic.name
+        });
+        topicEl.setAttr("draggable", "true");
+        topicEl.addEventListener("dragstart", (e) => {
+          var _a;
+          (_a = e.dataTransfer) == null ? void 0 : _a.setData("text/plain", topic.id);
+          topicEl.addClass("dragging");
+        });
+        topicEl.addEventListener("dragend", () => {
+          topicEl.removeClass("dragging");
+        });
+      }
+    }
+  }
+  async handleTopicDrop(topicId, newDate) {
+    const topic = this.plugin.pluginData.topics.find((t) => t.id === topicId);
+    if (!topic || topic.targetDate === newDate)
+      return;
+    if (topic.state === "studied" && newDate > topic.targetDate) {
+      new import_obsidian.Notice("\u26A0\uFE0F Warning: Delaying a scheduled algorithmic revision risks forgetting the material!");
+    }
+    topic.targetDate = newDate;
+    await this.plugin.savePluginData();
+    this.render();
   }
   async handleGrade(topicId, quality) {
     await this.plugin.handleRevisionGrade(topicId, quality);

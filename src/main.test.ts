@@ -23,7 +23,8 @@ jest.mock('obsidian', () => {
       }
     },
     ItemView: class {},
-    WorkspaceLeaf: class {}
+    WorkspaceLeaf: class {},
+    Notice: class {}
   };
 }, { virtual: true });
 
