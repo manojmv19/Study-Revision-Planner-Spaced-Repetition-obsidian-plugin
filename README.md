@@ -14,6 +14,8 @@ Choose the study schedule that works best for you in the plugin settings:
 * **Static Schedule:** Prefer a predictable schedule? Define your own custom interval sequence (e.g., `1, 7, 15, 30` days). You progress to the next step only if you score well on your review.
 
 ### 🗓️ Visual Calendar Tracker
+![Study Tracker Calendar](images/calendar.png)
+
 * View all your scheduled, upcoming, and overdue revisions at a glance on a dedicated calendar view.
 * Click any day to quickly log a new topic.
 * Drag and drop topics to manually reschedule them.

@@ -406,6 +406,10 @@
   color: var(--text-on-accent); 
   border-color: var(--interactive-accent-hover); 
 }
+.calendar-topic-item.studied .internal-link {
+  color: var(--text-on-accent);
+  text-decoration: underline;
+}
 .calendar-topic-item.dragging { opacity: 0.4; }
 
 /* Responsive adjustments for smaller mobile screens */
