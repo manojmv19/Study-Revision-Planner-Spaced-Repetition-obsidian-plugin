@@ -38,4 +38,9 @@ describe('Algorithm module', () => {
     expect(res.interval).toBe(1);
     expect(res.easeFactor).toBeLessThan(2.5);
   });
+
+  it('should clamp easeFactor to 1.3 minimum', () => {
+    const res = calculateNextInterval(1, 1, 1.3);
+    expect(res.easeFactor).toBe(1.3);
+  });
 });
