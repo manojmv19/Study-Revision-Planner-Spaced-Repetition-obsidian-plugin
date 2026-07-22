@@ -47,3 +47,9 @@ To launch the planner, look for the **calendar-check icon** (📅) located in th
 
 ## Settings
 Go to **Settings > Spaced Repetition Settings** to toggle between **SM-2** and **STATIC** algorithms. If using **STATIC**, you can specify a comma-separated list of intervals in days (e.g., `1, 7, 15, 30`).
+
+### SM-2 Configuration
+![SM-2 Settings](images/sm-2.png)
+
+### Static Schedule Configuration
+![Fixed Schedule Settings](images/fixed-schedule.png)
