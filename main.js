@@ -23,10 +23,14 @@ __export(main_exports, {
   default: () => ScientificRevisionPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian2 = require("obsidian");
+var import_obsidian3 = require("obsidian");
 
 // src/data.ts
 var DEFAULT_DATA = {
+  settings: {
+    algorithmType: "SM-2",
+    staticIntervals: [1, 7, 15, 30]
+  },
   topics: []
 };
 function getToday() {
@@ -64,6 +68,16 @@ function calculateNextInterval(quality, currentInterval, currentEaseFactor) {
     interval: newInterval,
     easeFactor: newEaseFactor
   };
+}
+function calculateStaticNextInterval(quality, currentInterval, staticIntervals) {
+  if (quality < 3) {
+    return currentInterval;
+  }
+  const nextInterval = staticIntervals.find((interval) => interval > currentInterval);
+  if (nextInterval === void 0) {
+    return null;
+  }
+  return nextInterval;
 }
 
 // src/ui/TrackerView.ts
@@ -320,7 +334,7 @@ var TrackerView = class extends import_obsidian.ItemView {
           await this.handleTopicDrop(topicId, dateStr);
         }
       });
-      const dayTopics = this.plugin.pluginData.topics.filter((t) => t.targetDate === dateStr);
+      const dayTopics = this.plugin.pluginData.topics.filter((t) => t.targetDate === dateStr && t.state !== "completed");
       for (const topic of dayTopics) {
         const topicEl = cell.createDiv({ cls: `calendar-topic-item ${topic.state}` });
         this.renderTopicName(topicEl, topic.name, "");
@@ -377,8 +391,40 @@ var TrackerView = class extends import_obsidian.ItemView {
   }
 };
 
+// src/settings.ts
+var import_obsidian2 = require("obsidian");
+var TrackerSettingTab = class extends import_obsidian2.PluginSettingTab {
+  constructor(app, plugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+  }
+  display() {
+    const { containerEl } = this;
+    containerEl.empty();
+    containerEl.createEl("h2", { text: "Spaced Repetition Settings" });
+    new import_obsidian2.Setting(containerEl).setName("Algorithm Type").setDesc("Choose between the dynamic SM-2 algorithm (Anki-style) or a fixed static schedule.").addDropdown((dropdown) => dropdown.addOption("SM-2", "Algorithmic (SM-2)").addOption("STATIC", "Fixed Schedule (Static)").setValue(this.plugin.pluginData.settings.algorithmType).onChange(async (value) => {
+      this.plugin.pluginData.settings.algorithmType = value;
+      await this.plugin.savePluginData();
+      this.display();
+    }));
+    if (this.plugin.pluginData.settings.algorithmType === "STATIC") {
+      new import_obsidian2.Setting(containerEl).setName("Static Intervals (in days)").setDesc("Comma-separated list of days for your revision schedule (e.g., 1, 7, 15, 30).").addText((text) => text.setPlaceholder("1, 7, 15, 30").setValue(this.plugin.pluginData.settings.staticIntervals.join(", ")).onChange(async (value) => {
+        const parsed = value.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n) && n > 0);
+        if (parsed.length > 0) {
+          this.plugin.pluginData.settings.staticIntervals = parsed;
+          await this.plugin.savePluginData();
+        }
+      }));
+    }
+  }
+};
+
 // src/main.ts
-var ScientificRevisionPlugin = class extends import_obsidian2.Plugin {
+var ScientificRevisionPlugin = class extends import_obsidian3.Plugin {
+  constructor() {
+    super(...arguments);
+    this.isSaving = false;
+  }
   async onload() {
     console.log("Loading Scientific Revision Plugin");
     await this.loadPluginData();
@@ -386,9 +432,23 @@ var ScientificRevisionPlugin = class extends import_obsidian2.Plugin {
       VIEW_TYPE_TRACKER,
       (leaf) => new TrackerView(leaf, this)
     );
+    this.addSettingTab(new TrackerSettingTab(this.app, this));
     this.addRibbonIcon("calendar-check", "Study Tracker", () => {
       this.activateView();
     });
+    this.registerEvent(
+      this.app.vault.on("modify", async (file) => {
+        if (file.path === this.manifest.dir + "/data.json" && !this.isSaving) {
+          await this.loadPluginData();
+          const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TRACKER);
+          leaves.forEach((leaf) => {
+            if (leaf.view instanceof TrackerView) {
+              leaf.view.render();
+            }
+          });
+        }
+      })
+    );
   }
   async onunload() {
     console.log("Unloading Scientific Revision Plugin");
@@ -415,31 +475,50 @@ var ScientificRevisionPlugin = class extends import_obsidian2.Plugin {
     }
   }
   async savePluginData() {
+    this.isSaving = true;
     try {
       await this.saveData(this.pluginData);
     } catch (error) {
       console.error("Failed to save plugin data", error);
+    } finally {
+      setTimeout(() => {
+        this.isSaving = false;
+      }, 500);
     }
   }
   async handleStudyComplete(topicId) {
     const topic = this.pluginData.topics.find((t) => t.id === topicId);
     if (topic) {
       topic.state = "studied";
-      topic.interval = 1;
       topic.easeFactor = 2.5;
+      if (this.pluginData.settings.algorithmType === "STATIC") {
+        topic.interval = this.pluginData.settings.staticIntervals[0] || 1;
+      } else {
+        topic.interval = 1;
+      }
       topic.lastReviewDate = getToday();
-      topic.targetDate = addDays(getToday(), 1);
+      topic.targetDate = addDays(getToday(), topic.interval);
       await this.savePluginData();
     }
   }
   async handleRevisionGrade(topicId, quality) {
     const topic = this.pluginData.topics.find((t) => t.id === topicId);
     if (topic) {
-      const result = calculateNextInterval(quality, topic.interval, topic.easeFactor);
-      topic.interval = result.interval;
-      topic.easeFactor = result.easeFactor;
+      if (this.pluginData.settings.algorithmType === "STATIC") {
+        const nextInterval = calculateStaticNextInterval(quality, topic.interval, this.pluginData.settings.staticIntervals);
+        if (nextInterval === null) {
+          topic.state = "completed";
+        } else {
+          topic.interval = nextInterval;
+          topic.targetDate = addDays(getToday(), topic.interval);
+        }
+      } else {
+        const result = calculateNextInterval(quality, topic.interval, topic.easeFactor);
+        topic.interval = result.interval;
+        topic.easeFactor = result.easeFactor;
+        topic.targetDate = addDays(getToday(), topic.interval);
+      }
       topic.lastReviewDate = getToday();
-      topic.targetDate = addDays(getToday(), topic.interval);
       await this.savePluginData();
     }
   }
