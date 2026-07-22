@@ -1,7 +1,9 @@
+const allMockElements: any[] = [];
 const createMockEl = () => {
   const listeners: Record<string, Function[]> = {};
   const el: any = {
     listeners,
+    children: [],
     addEventListener: jest.fn((event, cb) => {
       if (!listeners[event]) listeners[event] = [];
       listeners[event].push(cb);
@@ -12,7 +14,7 @@ const createMockEl = () => {
       }
     },
     createSpan: jest.fn(),
-    empty: jest.fn(),
+    empty: jest.fn(function(this: any) { this.children = []; }),
     addClass: jest.fn(),
     removeClass: jest.fn(),
     setAttr: jest.fn(),
@@ -20,18 +22,30 @@ const createMockEl = () => {
     setText: jest.fn(),
     value: '',
   };
-  el.createDiv = jest.fn((opts?: any) => {
+  el.createDiv = jest.fn(function(this: any, opts?: any) {
     const child = createMockEl();
     if (opts && opts.cls) child.className = opts.cls;
+    this.children.push(child);
     return child;
   });
-  el.createEl = jest.fn((tag: string, opts?: any) => {
+  el.createEl = jest.fn(function(this: any, tag: string, opts?: any) {
     const child = createMockEl();
     child.tagName = tag;
     if (opts && opts.cls) child.className = opts.cls;
     if (opts && opts.text) child.textContent = opts.text;
+    this.children.push(child);
     return child;
   });
+  el.style = {};
+  el.insertBefore = jest.fn(function(this: any, child: any, ref: any) {
+    const idx = this.children.indexOf(ref);
+    if (idx > -1) this.children.splice(idx, 0, child);
+    else this.children.push(child);
+  });
+  el.appendChild = jest.fn(function(this: any, child: any) { this.children.push(child); });
+  el.remove = jest.fn();
+  el.focus = jest.fn();
+  allMockElements.push(el);
   return el;
 };
 
@@ -59,6 +73,14 @@ import { TrackerView } from './TrackerView';
 import ScientificRevisionPlugin from '../main';
 import { getToday, Topic } from '../data';
 
+(global as any).createEl = (tag: string, opts?: any) => {
+  const el = createMockEl();
+  el.tagName = tag;
+  if (opts && opts.cls) el.className = opts.cls;
+  if (opts && opts.text) el.textContent = opts.text;
+  return el;
+};
+
 describe('TrackerView UI Logic', () => {
   let mockPlugin: any;
   let view: TrackerView;
@@ -71,6 +93,7 @@ describe('TrackerView UI Logic', () => {
       handleRevisionGrade: jest.fn(),
     };
     
+    allMockElements.length = 0; // reset
     view = new TrackerView({} as any, mockPlugin as any);
   });
 
@@ -97,24 +120,72 @@ describe('TrackerView UI Logic', () => {
     expect(container.empty).toHaveBeenCalled();
   });
   
-  it('adds a new topic when button is clicked (DOM Simulation)', async () => {
+  it('adds a new topic with date picker when button is clicked (DOM Simulation)', async () => {
     const today = getToday();
     mockPlugin.pluginData.topics = [];
+    view.render();
+
+    const addBtn = allMockElements.find(e => e.textContent === 'Add');
+    const inputs = allMockElements.filter(e => e.tagName === 'input');
+    const dateInput = inputs.find(e => e.className === 'tracker-date-picker');
+    const textInput = inputs.find(e => e.className !== 'tracker-date-picker' && !e.className?.includes('calendar'));
     
-    // Add logic simulation
-    const newTopic: Topic = {
-        id: '2',
-        name: 'New',
-        state: 'planned',
-        targetDate: today,
-        interval: 0,
-        easeFactor: 2.5
-    };
-    mockPlugin.pluginData.topics.push(newTopic);
-    await mockPlugin.savePluginData();
+    if (dateInput) dateInput.value = '2025-01-01';
+    if (textInput) textInput.value = 'New Topic from Picker';
+
+    await addBtn.trigger('click');
     
     expect(mockPlugin.pluginData.topics.length).toBe(1);
+    expect(mockPlugin.pluginData.topics[0].targetDate).toBe('2025-01-01');
     expect(mockPlugin.savePluginData).toHaveBeenCalled();
+  });
+
+  it('adds a topic with fallback to today if date picker is empty', async () => {
+    const today = getToday();
+    mockPlugin.pluginData.topics = [];
+    view.render();
+
+    const addBtn = allMockElements.find(e => e.textContent === 'Add');
+    const inputs = allMockElements.filter(e => e.tagName === 'input');
+    const dateInput = inputs.find(e => e.className === 'tracker-date-picker');
+    const textInput = inputs.find(e => e.className !== 'tracker-date-picker' && !e.className?.includes('calendar'));
+    
+    if (dateInput) dateInput.value = '';
+    if (textInput) textInput.value = 'Topic Empty Date';
+
+    await addBtn.trigger('click');
+    expect(mockPlugin.pluginData.topics[0].targetDate).toBe(today);
+  });
+
+  it('handles calendar quick add flow', async () => {
+    mockPlugin.pluginData.topics = [];
+    view.activeTab = 'calendar';
+    view.render();
+
+    const calAddBtn = allMockElements.find(e => e.textContent === '+');
+    calAddBtn.trigger('click', { stopPropagation: jest.fn() });
+
+    const inlineInput = allMockElements.find(e => e.className === 'calendar-inline-input');
+    inlineInput.value = 'New Cal Topic';
+    
+    // Save on blur
+    await inlineInput.trigger('blur');
+    expect(mockPlugin.pluginData.topics.length).toBe(1);
+    expect(mockPlugin.pluginData.topics[0].name).toBe('New Cal Topic');
+
+    // Test Escape cancels
+    calAddBtn.trigger('click', { stopPropagation: jest.fn() });
+    const inlineInput2 = allMockElements.find(e => e.className === 'calendar-inline-input' && e !== inlineInput);
+    inlineInput2.value = 'Cancel Me';
+    inlineInput2.trigger('keydown', { key: 'Escape' });
+    expect(mockPlugin.pluginData.topics.length).toBe(1);
+    
+    // Test empty blur doesn't add
+    calAddBtn.trigger('click', { stopPropagation: jest.fn() });
+    const inlineInput3 = allMockElements.find(e => e.className === 'calendar-inline-input' && e !== inlineInput && e !== inlineInput2);
+    inlineInput3.value = '   ';
+    await inlineInput3.trigger('blur');
+    expect(mockPlugin.pluginData.topics.length).toBe(1);
   });
 
   it('renders calendar tab correctly', () => {

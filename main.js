@@ -115,15 +115,17 @@ var TrackerView = class extends import_obsidian.ItemView {
     const toStudyToday = topics.filter((t) => t.state === "planned" && t.targetDate <= today);
     const toReviseToday = topics.filter((t) => t.state === "studied" && t.targetDate === today);
     const inputContainer = container.createDiv({ cls: "tracker-input-container" });
+    const dateInput = inputContainer.createEl("input", { type: "date", cls: "tracker-date-picker", value: today });
     const input = inputContainer.createEl("input", { type: "text", placeholder: "Log a new topic (e.g. [[Physics]])" });
-    const addButton = inputContainer.createEl("button", { text: "Add for Today" });
+    const addButton = inputContainer.createEl("button", { text: "Add" });
     addButton.addEventListener("click", async () => {
       if (input.value.trim()) {
+        const targetDate = dateInput.value || today;
         const newTopic = {
           id: Date.now().toString(),
           name: input.value.trim(),
           state: "planned",
-          targetDate: today,
+          targetDate,
           interval: 0,
           easeFactor: 2.5
         };
@@ -255,6 +257,46 @@ var TrackerView = class extends import_obsidian.ItemView {
       const dateStr = `${cellDate.getFullYear()}-${String(cellDate.getMonth() + 1).padStart(2, "0")}-${String(cellDate.getDate()).padStart(2, "0")}`;
       const cell = grid.createDiv({ cls: `calendar-cell ${dateStr === todayStr ? "today" : ""}` });
       cell.createDiv({ cls: "calendar-date-number", text: String(day) });
+      const addBtn = cell.createEl("button", { cls: "calendar-add-btn", text: "+" });
+      addBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        addBtn.style.display = "none";
+        const input = createEl("input", { type: "text", cls: "calendar-inline-input", placeholder: "Add..." });
+        if (cell.children.length > 2) {
+          cell.insertBefore(input, cell.children[2]);
+        } else {
+          cell.appendChild(input);
+        }
+        input.focus();
+        const saveInline = async () => {
+          const val = input.value.trim();
+          if (val) {
+            const newTopic = {
+              id: Date.now().toString(),
+              name: val,
+              state: "planned",
+              targetDate: dateStr,
+              interval: 0,
+              easeFactor: 2.5
+            };
+            this.plugin.pluginData.topics.push(newTopic);
+            await this.plugin.savePluginData();
+            this.render();
+          } else {
+            input.remove();
+            addBtn.style.display = "";
+          }
+        };
+        input.addEventListener("blur", saveInline);
+        input.addEventListener("keydown", (ev) => {
+          if (ev.key === "Enter") {
+            input.blur();
+          } else if (ev.key === "Escape") {
+            input.remove();
+            addBtn.style.display = "";
+          }
+        });
+      });
       cell.addEventListener("dragover", (e) => {
         e.preventDefault();
         cell.addClass("drag-over");

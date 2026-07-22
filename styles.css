@@ -68,6 +68,11 @@
   min-height: 44px; /* Touch target size */
   font-size: 1em;
   transition: border-color 0.2s, box-shadow 0.2s;
+  color: var(--text-normal);
+}
+.tracker-date-picker {
+  flex-grow: 0 !important;
+  min-width: 140px !important;
 }
 .tracker-input-container input:focus { 
   border-color: var(--interactive-accent); 
@@ -268,12 +273,55 @@
   background: var(--background-secondary-alt); 
   transition: all 0.2s; 
   scrollbar-width: none; /* Hide scrollbar Firefox */
+  position: relative;
 }
 .calendar-cell.empty { background: transparent; border-color: transparent; }
 .calendar-cell.drag-over { 
   background: var(--background-modifier-hover); 
   outline: 2px dashed var(--interactive-accent); 
   outline-offset: -2px; 
+}
+
+/* Quick Add Button */
+.calendar-add-btn {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 4px;
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border: none;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.calendar-cell:not(.empty):hover .calendar-add-btn {
+  opacity: 1;
+}
+.calendar-add-btn:hover {
+  filter: brightness(1.1);
+}
+
+/* Inline Input */
+.calendar-inline-input {
+  width: 100%;
+  padding: 4px;
+  font-size: 11px;
+  border-radius: 4px;
+  border: 1px solid var(--interactive-accent);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  margin-bottom: 4px;
+  box-sizing: border-box;
 }
 .calendar-date-number { 
   font-size: 0.75em; /* Reduced */
