@@ -1,5 +1,5 @@
 import { ItemView, WorkspaceLeaf, Notice } from 'obsidian';
-import { Topic, getToday, isOverdue } from '../data';
+import { Topic, getToday, isOverdue, addDays } from '../data';
 import ScientificRevisionPlugin from '../main';
 
 export const VIEW_TYPE_TRACKER = "scientific-revision-tracker";
@@ -74,33 +74,52 @@ export class TrackerView extends ItemView {
     });
 
     if (overdueTopics.length > 0) {
-      const overdueContainer = container.createDiv({ cls: "tracker-section overdue-section" });
-      overdueContainer.createEl("h3", { text: "⚠️ Overdue Revisions" });
-      this.renderTopicList(overdueContainer, overdueTopics);
+      const overdueDetails = container.createEl("details", { cls: "tracker-section overdue-section" });
+      overdueDetails.setAttribute("open", "");
+      overdueDetails.createEl("summary", { text: `⚠️ Overdue Revisions [${overdueTopics.length}]` });
+      this.renderTopicList(overdueDetails, overdueTopics);
     }
 
-    const reviseContainer = container.createDiv({ cls: "tracker-section" });
-    reviseContainer.createEl("h3", { text: "🔄 To Revise Today" });
+    const reviseDetails = container.createEl("details", { cls: "tracker-section" });
+    reviseDetails.setAttribute("open", "");
+    reviseDetails.createEl("summary", { text: `🔄 To Revise Today [${toReviseToday.length}]` });
     if (toReviseToday.length === 0) {
-      reviseContainer.createEl("p", { text: "No revisions scheduled for today." });
+      reviseDetails.createEl("p", { text: "No revisions scheduled for today." });
     } else {
-      this.renderTopicList(reviseContainer, toReviseToday);
+      this.renderTopicList(reviseDetails, toReviseToday);
     }
 
-    const studyContainer = container.createDiv({ cls: "tracker-section" });
-    studyContainer.createEl("h3", { text: "📚 To Study Today" });
+    const studyDetails = container.createEl("details", { cls: "tracker-section" });
+    // Collapsed by default as discussed
+    studyDetails.createEl("summary", { text: `📚 To Study Today [${toStudyToday.length}]` });
     if (toStudyToday.length === 0) {
-      studyContainer.createEl("p", { text: "No new topics planned for today." });
+      studyDetails.createEl("p", { text: "No new topics planned for today." });
     } else {
-      this.renderTopicList(studyContainer, toStudyToday);
+      this.renderTopicList(studyDetails, toStudyToday);
+    }
+    
+    // Upcoming Revisions (Next 7 days)
+    const next7Days = addDays(today, 7);
+    const upcomingTopics = topics.filter(t => t.state === 'studied' && t.targetDate > today && t.targetDate <= next7Days);
+    upcomingTopics.sort((a, b) => a.targetDate.localeCompare(b.targetDate));
+    
+    if (upcomingTopics.length > 0) {
+      const upcomingDetails = container.createEl("details", { cls: "tracker-section" });
+      upcomingDetails.createEl("summary", { text: `🗓️ Upcoming Revisions (Next 7 Days) [${upcomingTopics.length}]` });
+      this.renderTopicList(upcomingDetails, upcomingTopics, true);
     }
   }
 
-  private renderTopicList(container: HTMLElement, topics: Topic[]) {
+  private renderTopicList(container: HTMLElement, topics: Topic[], isReadOnly: boolean = false) {
     const list = container.createEl("ul");
     for (const topic of topics) {
       const li = list.createEl("li", { cls: "topic-item" });
       li.createSpan({ text: topic.name, cls: "topic-name" });
+
+      if (isReadOnly) {
+        li.createSpan({ text: `Due: ${topic.targetDate}`, cls: "topic-due-date" });
+        continue;
+      }
 
       const actions = li.createDiv({ cls: "topic-actions" });
 

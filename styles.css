@@ -32,17 +32,21 @@
 }
 
 .tracker-section { margin-bottom: 28px; }
-.tracker-section h3 { 
+.tracker-section summary { 
   margin-bottom: 12px; 
   font-size: 1.1em; 
-  display: flex; 
-  align-items: center; 
-  gap: 8px; 
+  font-weight: 600;
   border-bottom: 1px solid var(--background-modifier-border); 
   padding-bottom: 8px; 
   color: var(--text-normal);
+  cursor: pointer;
+  user-select: none;
+  outline: none;
 }
-.overdue-section h3 { 
+.tracker-section summary:hover {
+  color: var(--interactive-accent);
+}
+.overdue-section summary { 
   color: var(--text-error); 
   border-bottom-color: var(--text-error); 
 }
@@ -144,6 +148,12 @@
   font-weight: 500; 
   font-size: 1.05em; 
   color: var(--text-normal);
+}
+.topic-due-date {
+  font-size: 0.85em;
+  color: var(--text-muted);
+  font-style: italic;
+  font-weight: 500;
 }
 .topic-actions { 
   display: flex; 
