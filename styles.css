@@ -144,10 +144,42 @@
   box-shadow: 0 4px 8px rgba(0,0,0,0.08); 
   border-color: var(--background-modifier-border-hover); 
 }
+.topic-name-container {
+  flex-grow: 1;
+  min-width: 120px;
+}
 .topic-name { 
   font-weight: 500; 
   font-size: 1.05em; 
   color: var(--text-normal);
+}
+.topic-edit-input {
+  width: 100%;
+  padding: 4px 8px;
+  font-size: 1.05em;
+  background: var(--background-modifier-form-field);
+  border: 1px solid var(--background-modifier-border-focus);
+  color: var(--text-normal);
+  border-radius: 4px;
+}
+.btn-edit {
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  box-shadow: none;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.btn-edit:hover {
+  background: var(--background-modifier-hover);
+}
+.internal-link {
+  color: var(--text-accent);
+  text-decoration: none;
+  cursor: pointer;
+}
+.internal-link:hover {
+  text-decoration: underline;
 }
 .topic-due-date {
   font-size: 0.85em;

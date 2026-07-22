@@ -110,11 +110,27 @@ export class TrackerView extends ItemView {
     }
   }
 
+  private renderTopicName(container: HTMLElement, topicName: string, cls: string = "topic-name") {
+    const linkMatch = topicName.match(/^\[\[(.*?)\]\]$/);
+    if (linkMatch) {
+      const linkText = linkMatch[1];
+      const linkEl = container.createEl("a", { cls: `internal-link ${cls}`, text: linkText, href: "#" });
+      linkEl.addEventListener("click", (e) => {
+        e.preventDefault();
+        this.plugin.app.workspace.openLinkText(linkText, '', true);
+      });
+    } else {
+      container.createSpan({ text: topicName, cls });
+    }
+  }
+
   private renderTopicList(container: HTMLElement, topics: Topic[], isReadOnly: boolean = false) {
     const list = container.createEl("ul");
     for (const topic of topics) {
       const li = list.createEl("li", { cls: "topic-item" });
-      li.createSpan({ text: topic.name, cls: "topic-name" });
+      
+      const nameContainer = li.createDiv({ cls: "topic-name-container" });
+      this.renderTopicName(nameContainer, topic.name);
 
       if (isReadOnly) {
         li.createSpan({ text: `Due: ${topic.targetDate}`, cls: "topic-due-date" });
@@ -122,6 +138,31 @@ export class TrackerView extends ItemView {
       }
 
       const actions = li.createDiv({ cls: "topic-actions" });
+
+      const editBtn = actions.createEl("button", { text: "✏️", cls: "btn-edit", title: "Edit Topic" });
+      editBtn.addEventListener("click", () => {
+        nameContainer.empty();
+        const input = nameContainer.createEl("input", { type: "text", value: topic.name, cls: "topic-edit-input" });
+        input.focus();
+        
+        const saveEdit = async () => {
+          const newVal = input.value.trim();
+          if (newVal && newVal !== topic.name) {
+            topic.name = newVal;
+            await this.plugin.savePluginData();
+          }
+          this.render();
+        };
+        
+        input.addEventListener("blur", saveEdit);
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            input.blur();
+          } else if (e.key === "Escape") {
+            this.render();
+          }
+        });
+      });
 
       if (topic.state === 'planned') {
         const btn = actions.createEl("button", { text: "Done" });
@@ -193,10 +234,9 @@ export class TrackerView extends ItemView {
 
       const dayTopics = this.plugin.pluginData.topics.filter(t => t.targetDate === dateStr);
       for (const topic of dayTopics) {
-        const topicEl = cell.createDiv({ 
-          cls: `calendar-topic-item ${topic.state}`,
-          text: topic.name
-        });
+        const topicEl = cell.createDiv({ cls: `calendar-topic-item ${topic.state}` });
+        this.renderTopicName(topicEl, topic.name, "");
+        
         topicEl.setAttr("draggable", "true");
         topicEl.addEventListener("dragstart", (e) => {
           e.dataTransfer?.setData("text/plain", topic.id);
