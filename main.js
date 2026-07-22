@@ -107,6 +107,9 @@ var TrackerView = class extends import_obsidian.ItemView {
     } else {
       this.renderCalendar(contentContainer);
     }
+    if (import_obsidian.Platform.isMobile) {
+      this.renderMobileActionBar(container);
+    }
   }
   renderDashboard(container) {
     const today = getToday();
@@ -257,46 +260,50 @@ var TrackerView = class extends import_obsidian.ItemView {
       const dateStr = `${cellDate.getFullYear()}-${String(cellDate.getMonth() + 1).padStart(2, "0")}-${String(cellDate.getDate()).padStart(2, "0")}`;
       const cell = grid.createDiv({ cls: `calendar-cell ${dateStr === todayStr ? "today" : ""}` });
       cell.createDiv({ cls: "calendar-date-number", text: String(day) });
-      const addBtn = cell.createEl("button", { cls: "calendar-add-btn", text: "+" });
-      addBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        addBtn.style.display = "none";
-        const input = createEl("input", { type: "text", cls: "calendar-inline-input", placeholder: "Add..." });
-        if (cell.children.length > 2) {
-          cell.insertBefore(input, cell.children[2]);
-        } else {
-          cell.appendChild(input);
-        }
-        input.focus();
-        const saveInline = async () => {
-          const val = input.value.trim();
-          if (val) {
-            const newTopic = {
-              id: Date.now().toString(),
-              name: val,
-              state: "planned",
-              targetDate: dateStr,
-              interval: 0,
-              easeFactor: 2.5
-            };
-            this.plugin.pluginData.topics.push(newTopic);
-            await this.plugin.savePluginData();
-            this.render();
+      if (!import_obsidian.Platform.isMobile) {
+        cell.addClass("desktop-clickable");
+        cell.addEventListener("click", (e) => {
+          if (e.target.closest(".calendar-topic-item, .calendar-inline-input")) {
+            return;
+          }
+          if (cell.querySelector(".calendar-inline-input")) {
+            return;
+          }
+          const input = createEl("input", { type: "text", cls: "calendar-inline-input", placeholder: "Add..." });
+          if (cell.children.length > 1) {
+            cell.insertBefore(input, cell.children[1]);
           } else {
-            input.remove();
-            addBtn.style.display = "";
+            cell.appendChild(input);
           }
-        };
-        input.addEventListener("blur", saveInline);
-        input.addEventListener("keydown", (ev) => {
-          if (ev.key === "Enter") {
-            input.blur();
-          } else if (ev.key === "Escape") {
-            input.remove();
-            addBtn.style.display = "";
-          }
+          input.focus();
+          const saveInline = async () => {
+            const val = input.value.trim();
+            if (val) {
+              const newTopic = {
+                id: Date.now().toString(),
+                name: val,
+                state: "planned",
+                targetDate: dateStr,
+                interval: 0,
+                easeFactor: 2.5
+              };
+              this.plugin.pluginData.topics.push(newTopic);
+              await this.plugin.savePluginData();
+              this.render();
+            } else {
+              input.remove();
+            }
+          };
+          input.addEventListener("blur", saveInline);
+          input.addEventListener("keydown", (ev) => {
+            if (ev.key === "Enter") {
+              input.blur();
+            } else if (ev.key === "Escape") {
+              input.remove();
+            }
+          });
         });
-      });
+      }
       cell.addEventListener("dragover", (e) => {
         e.preventDefault();
         cell.addClass("drag-over");
@@ -344,6 +351,30 @@ var TrackerView = class extends import_obsidian.ItemView {
     await this.plugin.handleRevisionGrade(topicId, quality);
     this.render();
   }
+  renderMobileActionBar(container) {
+    const actionBar = container.createDiv({ cls: "mobile-action-bar" });
+    const today = getToday();
+    const dateInput = actionBar.createEl("input", { type: "date", cls: "mobile-date-picker", value: today });
+    const input = actionBar.createEl("input", { type: "text", placeholder: "Log a topic..." });
+    const addButton = actionBar.createEl("button", { text: "+" });
+    addButton.addEventListener("click", async () => {
+      if (input.value.trim()) {
+        const targetDate = dateInput.value || today;
+        const newTopic = {
+          id: Date.now().toString(),
+          name: input.value.trim(),
+          state: "planned",
+          targetDate,
+          interval: 0,
+          easeFactor: 2.5
+        };
+        this.plugin.pluginData.topics.push(newTopic);
+        await this.plugin.savePluginData();
+        input.value = "";
+        this.render();
+      }
+    });
+  }
 };
 
 // src/main.ts
@@ -369,7 +400,7 @@ var ScientificRevisionPlugin = class extends import_obsidian2.Plugin {
     if (leaves.length > 0) {
       leaf = leaves[0];
     } else {
-      leaf = workspace.getRightLeaf(false);
+      leaf = workspace.getLeaf("tab");
       await leaf.setViewState({ type: VIEW_TYPE_TRACKER, active: true });
     }
     workspace.revealLeaf(leaf);

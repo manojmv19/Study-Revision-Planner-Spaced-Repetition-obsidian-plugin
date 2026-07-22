@@ -45,7 +45,7 @@ describe('ScientificRevisionPlugin Data Adapter', () => {
     mockApp = {
       workspace: {
         getLeavesOfType: jest.fn(),
-        getRightLeaf: jest.fn(),
+        getLeaf: jest.fn(),
         revealLeaf: jest.fn()
       }
     } as unknown as App;
@@ -150,7 +150,7 @@ describe('ScientificRevisionPlugin Data Adapter', () => {
   it('should activateView and create new leaf if not exists', async () => {
     const mockLeaf = { setViewState: jest.fn() };
     (mockApp.workspace.getLeavesOfType as jest.Mock).mockReturnValue([]);
-    (mockApp.workspace.getRightLeaf as jest.Mock).mockReturnValue(mockLeaf);
+    (mockApp.workspace.getLeaf as jest.Mock).mockReturnValue(mockLeaf);
     
     await plugin.activateView();
     expect(mockLeaf.setViewState).toHaveBeenCalledWith({ type: 'scientific-revision-tracker', active: true });
