@@ -5,6 +5,7 @@ import { TrackerView, VIEW_TYPE_TRACKER } from './ui/TrackerView';
 
 export default class ScientificRevisionPlugin extends Plugin {
   pluginData: PluginData;
+  private isSaving: boolean = false;
 
   async onload() {
     console.log('Loading Scientific Revision Plugin');
@@ -18,6 +19,21 @@ export default class ScientificRevisionPlugin extends Plugin {
     this.addRibbonIcon('calendar-check', 'Study Tracker', () => {
       this.activateView();
     });
+
+    // Handle live-sync updates from other devices
+    this.registerEvent(
+      this.app.vault.on('modify', async (file) => {
+        if (file.path === this.manifest.dir + '/data.json' && !this.isSaving) {
+          await this.loadPluginData();
+          const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TRACKER);
+          leaves.forEach((leaf) => {
+            if (leaf.view instanceof TrackerView) {
+              leaf.view.render();
+            }
+          });
+        }
+      })
+    );
   }
 
   async onunload() {
@@ -51,10 +67,14 @@ export default class ScientificRevisionPlugin extends Plugin {
   }
 
   async savePluginData() {
+    this.isSaving = true;
     try {
       await this.saveData(this.pluginData);
     } catch (error) {
       console.error("Failed to save plugin data", error);
+    } finally {
+      // Prevent our own saves from triggering the live-sync refresh
+      setTimeout(() => { this.isSaving = false; }, 500);
     }
   }
 

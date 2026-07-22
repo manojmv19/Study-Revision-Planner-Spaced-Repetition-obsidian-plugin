@@ -1,6 +1,7 @@
 import ScientificRevisionPlugin from './main';
 import { DEFAULT_DATA } from './data';
 import { App, PluginManifest } from 'obsidian';
+import { TrackerView } from './ui/TrackerView';
 
 // Mock Obsidian Plugin architecture
 jest.mock('obsidian', () => {
@@ -20,6 +21,11 @@ jest.mock('obsidian', () => {
       
       registerView(type: string, cb: Function) {
         (this as any).viewCb = cb;
+      }
+      
+      registerEvent(eventRef: any) {
+        (this as any).eventRefs = (this as any).eventRefs || [];
+        (this as any).eventRefs.push(eventRef);
       }
       
       async loadData() {
@@ -47,11 +53,17 @@ describe('ScientificRevisionPlugin Data Adapter', () => {
         getLeavesOfType: jest.fn(),
         getLeaf: jest.fn(),
         revealLeaf: jest.fn()
+      },
+      vault: {
+        on: jest.fn((event, cb) => {
+          return { event, cb };
+        })
       }
     } as unknown as App;
     
     mockManifest = {
       id: 'study-revision-planner-spaced-repetition',
+      dir: 'study-revision-planner-spaced-repetition',
       name: 'Study & Revision Planner (Spaced Repetition)',
       version: '1.0.0',
       minAppVersion: '0.15.0'
@@ -155,5 +167,44 @@ describe('ScientificRevisionPlugin Data Adapter', () => {
     await plugin.activateView();
     expect(mockLeaf.setViewState).toHaveBeenCalledWith({ type: 'scientific-revision-tracker', active: true });
     expect(mockApp.workspace.revealLeaf).toHaveBeenCalledWith(mockLeaf);
+  });
+
+  it('should reload data on live-sync modify event', async () => {
+    const mockView = Object.create(TrackerView.prototype);
+    mockView.render = jest.fn();
+    const mockLeaf = { view: mockView, setViewState: jest.fn() };
+    (mockApp.workspace.getLeavesOfType as jest.Mock).mockReturnValue([mockLeaf]);
+
+    await plugin.onload();
+    
+    const modifyEventRef = (plugin as any).eventRefs.find((r: any) => r.event === 'modify');
+    expect(modifyEventRef).toBeDefined();
+
+    const spy = jest.spyOn(plugin, 'loadPluginData');
+    await modifyEventRef.cb({ path: 'study-revision-planner-spaced-repetition/data.json' });
+    
+    expect(spy).toHaveBeenCalled();
+    expect(mockView.render).toHaveBeenCalled();
+  });
+
+  it('should ignore live-sync modify event if isSaving is true or wrong file', async () => {
+    const mockView = Object.create(TrackerView.prototype);
+    mockView.render = jest.fn();
+    const mockLeaf = { view: mockView, setViewState: jest.fn() };
+    (mockApp.workspace.getLeavesOfType as jest.Mock).mockReturnValue([mockLeaf]);
+
+    await plugin.onload();
+    const modifyEventRef = (plugin as any).eventRefs.find((r: any) => r.event === 'modify');
+    const spy = jest.spyOn(plugin, 'loadPluginData');
+    
+    // Wrong file
+    await modifyEventRef.cb({ path: 'wrong-file.json' });
+    expect(spy).not.toHaveBeenCalled();
+
+    // While saving
+    (plugin as any).isSaving = true;
+    await modifyEventRef.cb({ path: 'study-revision-planner-spaced-repetition/data.json' });
+    expect(spy).not.toHaveBeenCalled();
+    expect(mockView.render).not.toHaveBeenCalled();
   });
 });
